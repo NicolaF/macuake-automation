@@ -5,7 +5,7 @@ import socket
 from dataclasses import dataclass
 from typing import Any
 
-SOCKET_PATH = "/tmp/maquake.sock"
+SOCKET_PATH = "/tmp/macuake.sock"
 
 
 class MacuakeError(Exception):
@@ -48,9 +48,10 @@ class MacuakeClient:
 
     def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send a JSON message and return the parsed response."""
+        msg = json.dumps(payload, separators=(",", ":")).encode() + b"\n"
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
             sock.connect(self.socket_path)
-            sock.sendall(json.dumps(payload).encode())
+            sock.sendall(msg)
             sock.shutdown(socket.SHUT_WR)
             chunks: list[bytes] = []
             while True:
@@ -119,7 +120,6 @@ class MacuakeClient:
 
     def focus(
         self,
-        *,
         session_id: str | None = None,
         index: int | None = None,
     ) -> None:
@@ -139,6 +139,21 @@ class MacuakeClient:
         self._send(payload)
 
     # ── Terminal I/O ─────────────────────────────────────────────────
+
+    def set_tab_title(self, title: str, session_id: str) -> None:
+        """Set the terminal tab title via escape sequence."""
+        self.execute(
+            f"printf '\\033]0;{title}\\007'",
+            session_id=session_id,
+        )
+        self.execute(
+            f"clear",
+            session_id=session_id,
+        )
+
+    def execute_silent(self, command: str, session_id: str | None = None) -> None:
+        """Execute a command and clear the screen."""
+        self.execute(f"{command}; clear", session_id=session_id)
 
     def execute(self, command: str, session_id: str | None = None) -> None:
         """Send a command (appends newline)."""
