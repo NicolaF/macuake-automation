@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import socket
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -45,6 +46,25 @@ class MacuakeClient:
 
     def __init__(self, socket_path: str = SOCKET_PATH) -> None:
         self.socket_path = socket_path
+
+    def wait_for_socket(self, timeout: int = 10) -> bool:
+        """Wait for the socket to be available.
+        
+        Args:
+            timeout: Maximum time to wait in seconds
+            
+        Returns:
+            True if socket becomes available, False if timeout reached
+        """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                    sock.connect(self.socket_path)
+                    return True
+            except (ConnectionRefusedError, FileNotFoundError):
+                time.sleep(1)
+        return False
 
     def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send a JSON message and return the parsed response."""
@@ -142,12 +162,8 @@ class MacuakeClient:
 
     def set_tab_title(self, title: str, session_id: str) -> None:
         """Set the terminal tab title via escape sequence."""
-        self.execute(
+        self.execute_silent(
             f"printf '\\033]0;{title}\\007'",
-            session_id=session_id,
-        )
-        self.execute(
-            f"clear",
             session_id=session_id,
         )
 
