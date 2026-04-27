@@ -6,6 +6,12 @@ from time import sleep
 
 from client import MacuakeClient, MacuakeError
 
+# Maximum time (in seconds) to wait for the Macuake Unix socket to become available.
+SOCKET_TIMEOUT = 60
+
+# Delay (in seconds) after creating tabs, to let them finish initializing.
+TAB_INITIALIZATION_DELAY = 3
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -43,7 +49,7 @@ def main() -> None:
     client = MacuakeClient()
     
     logger.info("Waiting for Macuake socket...")
-    if client.wait_for_socket(timeout=60):
+    if client.wait_for_socket(timeout=SOCKET_TIMEOUT):
         logger.info("Macuake socket ready")
     else:
         logger.error("Macuake socket not available")
@@ -68,8 +74,8 @@ def main() -> None:
         logger.info("  Created tab '%s' (session=%s, cwd=%s)", tab["name"], sid, tab["cwd"])
 
     # 3. Single sleep to let tabs initialize
-    logger.info("Waiting 3s for tabs to initialize...")
-    sleep(3)
+    logger.info(f"Waiting {TAB_INITIALIZATION_DELAY}s for tabs to initialize...")
+    sleep(TAB_INITIALIZATION_DELAY)
 
     # 4. Set titles and execute commands
     logger.info("Setting titles and executing commands...")
