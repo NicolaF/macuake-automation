@@ -2,15 +2,19 @@ import csv
 import logging
 import sys
 from pathlib import Path
-from time import sleep
+from time import sleep, time
 
 from client import MacuakeClient, MacuakeError
 
 # Maximum time (in seconds) to wait for the Macuake Unix socket to become available.
 SOCKET_TIMEOUT = 60
 
-# Delay (in seconds) after creating tabs, to let them finish initializing.
-TAB_INITIALIZATION_DELAY = 5
+# Maximum time (in seconds) to wait for a single tab to be ready.
+TAB_READY_TIMEOUT = 30
+# Interval (in seconds) between read polls while waiting for a tab.
+TAB_READY_POLL_INTERVAL = 0.3
+# Minimum number of terminal lines to consider a tab ready.
+TAB_READY_MIN_LINES = 2
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,6 +49,28 @@ def read_config(path: Path) -> list[dict]:
     return tabs
 
 
+def wait_for_tab_ready(
+    client: MacuakeClient,
+    session_id: str,
+    *,
+    min_lines: int = TAB_READY_MIN_LINES,
+    timeout: float = TAB_READY_TIMEOUT,
+    poll_interval: float = TAB_READY_POLL_INTERVAL,
+) -> None:
+    """Poll client.read until the terminal has at least *min_lines* lines."""
+    deadline = time() + timeout
+    while time() < deadline:
+        result = client.read(session_id=session_id)
+        non_empty = [l for l in result.lines if l.strip()]
+        if len(non_empty) >= min_lines:
+            return
+        sleep(poll_interval)
+    logger.warning(
+        "Tab %s did not reach %d lines within %.1fs – proceeding anyway",
+        session_id, min_lines, timeout,
+    )
+
+
 def main() -> None:
     client = MacuakeClient()
     
@@ -73,23 +99,22 @@ def main() -> None:
         created_tabs.append((sid, tab))
         logger.info("  Created tab '%s' (session=%s, cwd=%s)", tab["name"], sid, tab["cwd"])
 
-    # 3. Single sleep to let tabs initialize
-    logger.info(f"Waiting {TAB_INITIALIZATION_DELAY}s for tabs to initialize...")
-    sleep(TAB_INITIALIZATION_DELAY)
-
-    # 4. Set titles and execute commands
+    # 3. Set titles and execute commands
     logger.info("Setting titles and executing commands...")
     for sid, tab in created_tabs:
-        client.set_tab_title(tab["name"], sid)
+        if tab["name"] or "command" in tab:
+            wait_for_tab_ready(client, sid)
+        if tab["name"]:
+            client.set_tab_title(tab["name"], sid)
         if "command" in tab:
             logger.info("  Executing command in '%s': %s", tab["name"], tab["command"])
             client.execute_silent(tab["command"], session_id=sid)
 
-    # 5. Create generic tab (no name)
+    # 4. Create generic tab (no name)
     logger.info("Creating generic tab...")
     generic_sid = client.new_tab(directory=Path.home().as_posix())
 
-    # 6. Close all pre-existing tabs
+    # 5. Close all pre-existing tabs
     logger.info("Closing %d pre-existing tab(s)...", len(old_session_ids))
     for sid in old_session_ids:
         try:
@@ -99,7 +124,7 @@ def main() -> None:
 
 
 
-    # 7. Focus the generic tab
+    # 6. Focus the generic tab
     client.focus(session_id=generic_sid)
     logger.info("Done – focused generic tab")
 
