@@ -12,7 +12,7 @@ SOCKET_TIMEOUT = 60
 # Maximum time (in seconds) to wait for a single tab to be ready.
 TAB_READY_TIMEOUT = 30
 # Interval (in seconds) between read polls while waiting for a tab.
-TAB_READY_POLL_INTERVAL = 0.3
+TAB_READY_POLL_INTERVAL = 0.1
 # Minimum number of terminal lines to consider a tab ready.
 TAB_READY_MIN_LINES = 2
 

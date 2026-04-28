@@ -28,13 +28,13 @@ git clone https://github.com/NicolaF/macuake-automation.git
 cd macuake-automation
 uv sync          # or: python -m venv .venv && .venv/bin/pip install .
 
-# Install the Launch Agent + Automator service
+# Install the Launch Agent + mreset command
 python setup.py
 ```
 
 This will:
 - Create a **Launch Agent** (`~/Library/LaunchAgents/com.macuake-automation.plist`) that runs `main.py` at login.
-- Create an **Automator Quick Action** (`~/Library/Services/Macuake Automation.workflow`) that you can bind to a keyboard shortcut.
+- Symlink **`mreset`** into `~/.bin/` so you can re-run the setup manually from any tab.
 
 Then load the agent:
 
@@ -42,12 +42,18 @@ Then load the agent:
 launchctl load ~/Library/LaunchAgents/com.macuake-automation.plist
 ```
 
-To assign a keyboard shortcut: **System Settings → Keyboard → Keyboard Shortcuts → Services** → find "Macuake Automation" → set a shortcut.
+Make sure `~/.bin` is in your `PATH` (add to `.zshrc` if needed):
+
+```bash
+export PATH="$HOME/.bin:$PATH"
+```
+
+You can then run `mreset` from any terminal tab to re-provision all tabs. The command detaches from the calling terminal, so it keeps running even if the tab it was launched from gets closed.
 
 ### Uninstall
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.macuake-automation.plist
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.macuake-automation.plist
 python setup.py uninstall
 ```
 

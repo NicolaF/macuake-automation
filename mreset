@@ -1,0 +1,10 @@
+#!/bin/zsh
+# Launch macuake-automation detached from the current terminal,
+# so it keeps running even if the calling tab is closed.
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+PYTHON="$SCRIPT_DIR/.venv/bin/python"
+MAIN="$SCRIPT_DIR/main.py"
+
+nohup "$PYTHON" "$MAIN" >> /tmp/macuake-automation.log 2>&1 &
+disown
