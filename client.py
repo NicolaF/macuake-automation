@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import json
+import logging
 import socket
 import time
 from dataclasses import dataclass
 from typing import Any
 
 SOCKET_PATH = "/tmp/macuake.sock"
+SOCKET_TIMEOUT = 2.0
+SEND_MAX_RETRIES = 10
+SEND_RETRY_DELAY = 0.1
+
+logger = logging.getLogger(__name__)
 
 
 class MacuakeError(Exception):
@@ -69,20 +75,35 @@ class MacuakeClient:
     def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send a JSON message and return the parsed response."""
         msg = json.dumps(payload, separators=(",", ":")).encode() + b"\n"
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-            sock.connect(self.socket_path)
-            sock.sendall(msg)
-            sock.shutdown(socket.SHUT_WR)
-            chunks: list[bytes] = []
-            while True:
-                chunk = sock.recv(4096)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-        data = json.loads(b"".join(chunks))
-        if not data.get("ok"):
-            raise MacuakeError(data.get("error", "unknown error"))
-        return data
+        last_err: Exception | None = None
+        for attempt in range(1, SEND_MAX_RETRIES + 1):
+            try:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(SOCKET_TIMEOUT)
+                    sock.connect(self.socket_path)
+                    sock.sendall(msg)
+                    sock.shutdown(socket.SHUT_WR)
+                    chunks: list[bytes] = []
+                    while True:
+                        chunk = sock.recv(4096)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                data = json.loads(b"".join(chunks))
+                if not data.get("ok"):
+                    raise MacuakeError(data.get("error", "unknown error"))
+                return data
+            except (BrokenPipeError, ConnectionResetError, socket.timeout) as exc:
+                last_err = exc
+                if attempt < SEND_MAX_RETRIES:
+                    logger.warning(
+                        "macuake _send attempt %d/%d failed (%s), retrying in %.1fs",
+                        attempt, SEND_MAX_RETRIES, exc, SEND_RETRY_DELAY,
+                    )
+                    time.sleep(SEND_RETRY_DELAY)
+        raise MacuakeError(
+            f"failed after {SEND_MAX_RETRIES} attempts: {last_err}"
+        ) from last_err
 
     # ── Window Control ───────────────────────────────────────────────
 

@@ -36,6 +36,9 @@ def generate_workflow():
             {
                 "NSMenuItem": {"default": SERVICE_NAME},
                 "NSMessage": "runWorkflowAsService",
+                "NSRequiredContext": {},
+                "NSSendTypes": [],
+                "NSReturnTypes": [],
             }
         ],
     }
@@ -133,6 +136,7 @@ def generate_workflow():
         ],
         "connectors": {},
         "workflowMetaData": {
+            "serviceInputTypeIdentifier": "com.apple.Automator.nothing",
             "workflowTypeIdentifier": "com.apple.Automator.servicesMenu",
         },
     }

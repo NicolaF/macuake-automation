@@ -10,7 +10,7 @@ from client import MacuakeClient, MacuakeError
 SOCKET_TIMEOUT = 60
 
 # Delay (in seconds) after creating tabs, to let them finish initializing.
-TAB_INITIALIZATION_DELAY = 3
+TAB_INITIALIZATION_DELAY = 5
 
 logging.basicConfig(
     level=logging.INFO,
