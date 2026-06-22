@@ -87,26 +87,23 @@ def main() -> None:
 
     # 1. Remember existing tabs so we can close them later
     old_tabs = client.list_tabs()
-    old_session_ids = {t.session_id for t in old_tabs}
+    old_session_ids = {s.session_id for t in old_tabs for s in t.sessions}
     logger.info("Found %d existing tab(s) to clean up later", len(old_session_ids))
 
     # 2. Create tabs from config
     logger.info("Creating tabs from config...")
     created_tabs = []
     for tab in config_tabs:
-        sid = client.new_tab(directory=tab["cwd"])
+        sid = client.new_tab(name=tab["name"], directory=tab["cwd"])
         client.focus(session_id=sid)
         created_tabs.append((sid, tab))
         logger.info("  Created tab '%s' (session=%s, cwd=%s)", tab["name"], sid, tab["cwd"])
 
     # 3. Set titles and execute commands
-    logger.info("Setting titles and executing commands...")
+    logger.info("Executing commands...")
     for sid, tab in created_tabs:
-        if tab["name"] or "command" in tab:
-            wait_for_tab_ready(client, sid)
-        if tab["name"]:
-            client.set_tab_title(tab["name"], sid)
         if "command" in tab:
+            wait_for_tab_ready(client, sid)
             logger.info("  Executing command in '%s': %s", tab["name"], tab["command"])
             client.execute_silent(tab["command"], session_id=sid)
 

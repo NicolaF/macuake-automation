@@ -18,14 +18,18 @@ logger = logging.getLogger(__name__)
 class MacuakeError(Exception):
     """Raised when the Macuake API returns an error."""
 
+@dataclass
+class Session:
+    session_id: str
+    focused: bool
+    cwd: str
 
 @dataclass
 class TabInfo:
-    session_id: str
+    sessions: list[Session]
     index: int
     title: str
     active: bool
-    cwd: str
 
 
 @dataclass
@@ -140,20 +144,19 @@ class MacuakeClient:
         data = self._send({"action": "list"})
         return [
             TabInfo(
-                session_id=t["session_id"],
+                sessions= [Session(**s) for s in t.get("sessions", [])],
                 index=t["index"],
                 title=t["title"],
                 active=t["active"],
-                cwd=t["cwd"],
             )
             for t in data["tabs"]
         ]
 
     # ── Tab Management ───────────────────────────────────────────────
 
-    def new_tab(self, directory: str | None = None) -> str:
+    def new_tab(self, name: str = "", directory: str | None = None) -> str:
         """Create a new tab. Returns the session_id."""
-        payload: dict[str, Any] = {"action": "new-tab"}
+        payload: dict[str, Any] = {"action": "new-tab", "name": name}
         if directory is not None:
             payload["directory"] = directory
         data = self._send(payload)
@@ -180,13 +183,6 @@ class MacuakeClient:
         self._send(payload)
 
     # ── Terminal I/O ─────────────────────────────────────────────────
-
-    def set_tab_title(self, title: str, session_id: str) -> None:
-        """Set the terminal tab title via escape sequence."""
-        self.execute_silent(
-            f"printf '\\033]0;{title}\\007'",
-            session_id=session_id,
-        )
 
     def execute_silent(self, command: str, session_id: str | None = None) -> None:
         """Execute a command and clear the screen."""
